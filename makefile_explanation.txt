@@ -1,0 +1,128 @@
+
+NOTE THAT blink.elf is like Application.elf
+
+
+
+1.Tool Definitions:
+
+CC = arm-none-eabi-gcc
+AS = arm-none-eabi-as
+OBJCOPY = arm-none-eabi-objcopy
+SIZE = arm-none-eabi-size
+Purpose: Specifies the tools from your arm-none-eabi toolchain.
+Details:
+CC: The C compiler (arm-none-eabi-gcc) for .c files.
+AS: The assembler (arm-none-eabi-as) for .s files (e.g., startup.s).
+OBJCOPY: Converts ELF files to binary or hex formats for flashing.
+SIZE: Reports the size of code, data, and BSS sections in the ELF file.
+
+2.Compiler and Assembler Flags:
+CFLAGS = -mcpu=cortex-m3 -mthumb -g -O0 -Wall
+ASFLAGS = -mcpu=cortex-m3 -mthumb -g
+LDFLAGS = -T linkerscript.ld -nostdlib
+Purpose: Configures the compiler, assembler, and linker.
+Details:
+CFLAGS (C Compiler Flags):
+-mcpu=cortex-m3: Targets the Cortex-M3 CPU (STM32F103C6).
+-mthumb: Uses Thumb-2 instruction set (required for Cortex-M3).
+-g: Includes debug information for GDB.
+-O0: No optimization (for easier debugging).
+-Wall: Enables all compiler warnings for better code quality.
+ASFLAGS (Assembler Flags):
+Same as CFLAGS but for the assembler, omitting irrelevant flags like -Wall.
+LDFLAGS (Linker Flags):
+-T linkerscript.ld: Uses your linker script to define memory layout.
+-nostdlib: Excludes standard libraries (bare-metal project).
+
+3.Source Files and Output:
+SOURCES = main.c GPIO_program.c RCC_program.c SYSTK_program.c
+ASM_SOURCES = startup.s
+OBJECTS = $(SOURCES:.c=.o) $(ASM_SOURCES:.s=.o)
+TARGET = Application
+Purpose: Lists source files and defines the output name.
+Details:
+SOURCES: C source files to compile (main.c, gpio.c, rcc.c, systick.c).
+ASM_SOURCES: Assembly file (startup.s).
+OBJECTS: Converts source file names to object file names (e.g., main.c → main.o, startup.s → startup.o).
+$(SOURCES:.c=.o): Replaces .c with .o for C files.
+$(ASM_SOURCES:.s=.o): Replaces .s with .o for assembly files.
+TARGET: Base name for output files (Application.elf, Application.bin,Application.hex).
+
+4.Default Target:
+all: $(TARGET).elf $(TARGET).bin $(TARGET).hex
+Purpose: Defines the default target when you run make.
+Details: Builds three files:
+Application.elf: Executable with debug info.
+Application.bin: Binary for flashing.
+Application.hex: Intel HEX format (alternative for flashing).
+
+5.Rule for Compiling C Files:
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+Purpose: Compiles each .c file into a .o (object) file.
+Details:
+%.o: %.c: Pattern rule; applies to any .o file with a matching .c file.
+$(CC): Uses arm-none-eabi-gcc.
+$(CFLAGS): Applies compiler flags.
+-c: Compiles without linking.
+$<: First prerequisite (e.g., main.c).
+-o $@: Output to the target (e.g., main.o).
+
+6.Rule for Assembling Assembly Files:
+%.o: %.s
+	$(AS) $(ASFLAGS) $< -o $@
+Purpose: Assembles startup.s into startup.o.
+Details:
+Similar to the C rule but uses arm-none-eabi-as.
+Processes startup.s with Cortex-M3 and Thumb-2 settings
+
+7.Rule for Linking:
+$(TARGET).elf: $(OBJECTS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJECTS) -o $@
+	$(SIZE) $@
+Purpose: Links object files into an ELF executable.
+Details:
+$(TARGET).elf: Output file (Application.elf).
+$(OBJECTS): All object files (main.o, gpio.o, rcc.o, systick.o, startup.o).
+$(CC): Uses gcc for linking (invokes arm-none-eabi-ld internally).
+$(CFLAGS) $(LDFLAGS): Applies compiler and linker flags.
+-o $@: Outputs to blink.elf.
+$(SIZE) $@: Displays the size of code, data, and BSS sections
+
+8.Rule for Binary File
+$(TARGET).bin: $(TARGET).elf
+	$(OBJCOPY) -O binary $< $@
+
+Purpose: Converts blink.elf to blink.bin (raw binary for flashing).
+Details:
+-O binary: Specifies binary output format.
+$<: Input file (Application.elf).
+$@: Output file (Application.bin).
+
+9.Rule for Hex File:
+$(TARGET).hex: $(TARGET).elf
+	$(OBJCOPY) -O ihex $< $@
+Purpose: Converts Application.elf to Application.hex (Intel HEX format).
+Details: Similar to the binary rule but uses -O ihex.
+
+10.Clean Target:
+clean:
+	rm -f *.o *.elf *.bin *.hex
+Purpose: Removes generated files for a clean build.
+Details: Deletes all .o, .elf, .bin, and .hex files in the directory.
+
+11.Flash Target:
+flash: $(TARGET).bin
+	openocd -f interface/stlink.cfg -f target/stm32f1x.cfg -c "program $(TARGET).bin 0x08000000 verify reset exit"
+Purpose: Flashes blink.bin to the STM32F103C6 via ST-Link using OpenOCD.
+Details:
+flash: $(TARGET).bin: Depends on blink.bin.
+openocd: Runs OpenOCD with:
+-f interface/stlink.cfg: Configures ST-Link interface.
+-f target/stm32f1x.cfg: Configures STM32F1 series (includes STM32F103C6).
+-c "program $(TARGET).bin 0x08000000 verify reset exit": Programs the binary to flash at 0x08000000, verifies, resets the MCU, and exits
+
+12.Phony Targets:
+.PHONY: all clean flash
+Purpose: Declares all, clean, and flash as non-file targets.
+Details: Ensures make doesn’t confuse these with files, running them even if files named all, clean, or flash exist
