@@ -21,7 +21,7 @@ STM32 Baremetal Project – LED Blink + Custom Drivers
 
 ### Project Structure
 -----------------
-YOU WILL FIND IN THE DIRECTORY 
+
 main.c                     -> Application entry point  
 startup.s                  -> Assembly startup code and vector table  
 linkerscript.ld            -> Custom linker script  
